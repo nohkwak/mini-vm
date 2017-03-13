@@ -4,6 +4,8 @@
    To run: ocaml str.cma compiler.ml <asm file> <output file>
 *)
 
+type line = { no : int; content : string}
+
 let max_oprs = 3
 let space = Str.regexp "\\( \\|\t\\)+"
 let delim = Str.regexp "\\( \\|\t\\)*,\\( \\|\t\\)*"
@@ -12,6 +14,10 @@ let imm = Str.regexp "[0-9]+"
 
 let usage () =
   print_endline "Usage : ocaml str.cma compiler.ml <asm file> <output file>"
+
+let error line msg =
+  Printf.printf "[Errror] Line %d : %s\n\t%s" line.no msg line.content;
+  exit 1
 
 let opcode_to_int = function
   | "halt" -> 0x00
@@ -53,15 +59,24 @@ let out oc opcode operands =
   List.iter (out_operand oc) operands;
   out_no_opr oc (max_oprs - List.length operands)
 
+(* Check if the types (reg/imm) of operands are valid *)
+let check_type operand operands line =
+  (* TODO : fill in *)
+  ()
+
 let parse inpath outpath =
   let ic = open_in inpath in
   let oc = open_out outpath in
   try
+    let line_no = ref 0 in
     while true do
       let l = input_line ic in
+      let _ = line_no := !line_no + 1 in
+      let line = {no = !line_no; content = l} in
       match Str.split space l with
       | opcode :: operands_str ->
           let operands = Str.split delim (String.concat "" operands_str) in
+          check_type opcode operands line;
           out oc opcode operands
       | _ -> failwith "Str.Split failure"
     done
