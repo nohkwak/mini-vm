@@ -1,13 +1,16 @@
 (*
    Mini Language Compiler (Assembler)
 
-   To run: ocaml str.cma compiler.ml <asm file>
+   To run: ocaml str.cma compiler.ml <asm file> <output file>
 *)
 
 let max_oprs = 3
 let delim = Str.regexp "\\( \\|\t\\)*,\\( \\|\t\\)*"
 let reg = Str.regexp "r\\([0-9]+\\)"
 let imm = Str.regexp "[0-9]+"
+
+let usage () =
+  print_endline "Usage : ocaml str.cma compiler.ml <asm file> <output file>"
 
 let opcode_to_int = function
   | "halt" -> 0x00
@@ -70,5 +73,5 @@ let parse inpath outpath =
   with End_of_file -> (close_in ic; close_out oc)
 
 let main =
-  if Array.length Sys.argv < 3 then exit 1
+  if Array.length Sys.argv <> 3 then (usage(); exit 1)
   else parse Sys.argv.(1) Sys.argv.(2)
