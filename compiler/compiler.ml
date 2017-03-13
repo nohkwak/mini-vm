@@ -4,7 +4,7 @@
    To run: ocaml str.cma compiler.ml <asm file> <output file>
 *)
 
-type line = { no : int; content : string}
+type line = {num : int; content : string}
 
 let max_oprs = 3
 let max_int = 0xff (* Maximum integer supported for this asm language *)
@@ -17,7 +17,7 @@ let usage () =
   print_endline "Usage : ocaml str.cma compiler.ml <asm file> <output file>"
 
 let error line msg =
-  Printf.printf "[Errror] Line %d : %s\n    %s\n" line.no msg line.content;
+  Printf.printf "[Errror] Line %d : %s\n    %s\n" line.num msg line.content;
   exit 1
 
 let opcode_to_int = function
@@ -82,8 +82,7 @@ let out oc opcode operands =
 let check_range num_str line =
   try
     let num = int_of_string num_str in
-    if num < 0 || num > max_int then
-      error line "Invalid integer range"
+    if num < 0 || num > max_int then error line "Invalid integer range"
   with Failure _ -> error line "Invalid integer format"
 
 let check_reg_range = check_range
@@ -121,14 +120,14 @@ let parse inpath outpath =
   let ic = open_in inpath in
   let oc = open_out outpath in
   try
-    let line_no = ref 0 in
+    let line_num = ref 0 in
     while true do
       let l = input_line ic in
-      let _ = line_no := !line_no + 1 in
-      let line = {no = !line_no; content = l} in
+      line_num := !line_num + 1;
+      let line = {num = !line_num; content = l} in
       match Str.split space l with
-      | opcode :: operands_str ->
-        let operands = Str.split delim (String.concat "" operands_str) in
+      | opcode :: tail_tokens ->
+        let operands = Str.split delim (String.concat "" tail_tokens) in
         type_check opcode operands line;
         out oc opcode operands
       | [] -> error line "empty line provided"
