@@ -10,7 +10,7 @@ let max_oprs = 3
 let max_int = 0xff (* Maximum integer supported for this asm language *)
 let space = Str.regexp "\\( \\|\t\\)+"
 let delim = Str.regexp "\\( \\|\t\\)*,\\( \\|\t\\)*"
-let reg = Str.regexp "r\\([0-9]+\\)"
+let reg = Str.regexp "r\\([0-9]+\\)$"
 let imm = Str.regexp "[0-9]+"
 
 let usage () =
