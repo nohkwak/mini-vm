@@ -7,6 +7,7 @@
 type line = { no : int; content : string}
 
 let max_oprs = 3
+let max_int = 0xff (* Maximum integer supported for this asm language *)
 let space = Str.regexp "\\( \\|\t\\)+"
 let delim = Str.regexp "\\( \\|\t\\)*,\\( \\|\t\\)*"
 let reg = Str.regexp "r\\([0-9]+\\)"
@@ -16,7 +17,7 @@ let usage () =
   print_endline "Usage : ocaml str.cma compiler.ml <asm file> <output file>"
 
 let error line msg =
-  Printf.printf "[Errror] Line %d : %s\n\t%s" line.no msg line.content;
+  Printf.printf "[Errror] Line %d : %s\n    %s\n" line.no msg line.content;
   exit 1
 
 let opcode_to_int = function
@@ -34,7 +35,26 @@ let opcode_to_int = function
   | "jump" -> 0xb0
   | "puts" -> 0xc0
   | "gets" -> 0xd0
-  | opcode -> failwith ("Invalid opcode: " ^ opcode)
+  | opcode -> failwith ("[Unreachable] type_check() should have handled this")
+
+type oprnd_typ = Reg | Imm
+
+let get_operand_type line = function
+  | "halt" -> []
+  | "load" -> [Reg; Reg]
+  | "store" -> [Reg; Reg]
+  | "move" -> [Reg; Reg]
+  | "puti" -> [Reg; Imm]
+  | "add" -> [Reg; Reg; Reg]
+  | "sub" -> [Reg; Reg; Reg]
+  | "gt" -> [Reg; Reg; Reg]
+  | "ge" -> [Reg; Reg; Reg]
+  | "eq" -> [Reg; Reg; Reg]
+  | "ite" -> [Reg; Imm; Imm]
+  | "jump" -> [Imm]
+  | "puts" -> [Reg]
+  | "gets" -> [Reg]
+  | opcode -> error line ("Invalid opcode: " ^ opcode)
 
 let out_opcode oc opcode =
   opcode_to_int opcode |> output_byte oc
@@ -51,7 +71,7 @@ let out_operand oc operand =
   let o = String.lowercase operand in (* only consider lower cases *)
   if Str.string_match reg o 0 then Str.matched_group 1 o |> out_reg oc
   else if Str.string_match imm o 0 then out_imm oc o
-  else failwith ("Invalid operand: " ^ operand)
+  else failwith ("[Unreachable] type_check() should have handled this")
 
 let out oc opcode operands =
   assert (List.length operands <= 3);
@@ -59,10 +79,43 @@ let out oc opcode operands =
   List.iter (out_operand oc) operands;
   out_no_opr oc (max_oprs - List.length operands)
 
-(* Check if the types (reg/imm) of operands are valid *)
-let check_type operand operands line =
-  (* TODO : fill in *)
-  ()
+let check_range num_str line =
+  try
+    let num = int_of_string num_str in
+    if num < 0 || num > max_int then
+      error line "Invalid integer range"
+  with Failure _ -> error line "Invalid integer format"
+
+let check_reg_range = check_range
+let check_imm_range = check_range
+
+(* TODO : remove duplication with out_operand() function *)
+let check_operand oprnd typ line =
+  let oprnd' = String.lowercase oprnd in
+  match typ with
+  | Reg -> (* expect oprnd is a register *)
+    if Str.string_match reg oprnd' 0 then
+      check_reg_range (Str.matched_group 1 oprnd') line
+    else error line ("Expected Reg operand, but '" ^ oprnd' ^ "' was given")
+  | Imm -> (* expect oprnd is an immediate value *)
+    if Str.string_match imm oprnd' 0 then check_imm_range oprnd' line
+    else error line ("Expected Imm operand, but '" ^ oprnd' ^ "' was given")
+
+(* Check if the operands have a valid type (reg/imm) for given opcode *)
+let type_check opcode operands line =
+  let types = get_operand_type line opcode in
+  let valid_len = List.length types in
+  let rec type_check_aux oprnds typs =
+    match oprnds, typs with
+    | [], [] -> ()
+    | _, [] | [], _ ->
+      let error_msg = Printf.sprintf "%s needs %d operands" opcode valid_len in
+      error line error_msg
+    | oprnd :: oprnd_tail, typ :: typ_tail ->
+      check_operand oprnd typ line;
+      type_check_aux oprnd_tail typ_tail
+  in
+  type_check_aux operands types
 
 let parse inpath outpath =
   let ic = open_in inpath in
@@ -75,10 +128,10 @@ let parse inpath outpath =
       let line = {no = !line_no; content = l} in
       match Str.split space l with
       | opcode :: operands_str ->
-          let operands = Str.split delim (String.concat "" operands_str) in
-          check_type opcode operands line;
-          out oc opcode operands
-      | _ -> failwith "Str.Split failure"
+        let operands = Str.split delim (String.concat "" operands_str) in
+        type_check opcode operands line;
+        out oc opcode operands
+      | [] -> error line "empty line provided"
     done
   with End_of_file -> (close_in ic; close_out oc)
 
