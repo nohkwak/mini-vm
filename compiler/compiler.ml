@@ -126,11 +126,12 @@ let parse inpath outpath =
       line_num := !line_num + 1;
       let line = {num = !line_num; content = l} in
       match Str.split space l with
+      | ";" :: _ -> ();
+      | [] -> ();
       | opcode :: tail_tokens ->
         let operands = Str.split delim (String.concat "" tail_tokens) in
         type_check opcode operands line;
         out oc opcode operands
-      | [] -> error line "empty line provided"
     done
   with End_of_file -> (close_in ic; close_out oc)
 
