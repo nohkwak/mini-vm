@@ -12,6 +12,7 @@ let space = Str.regexp "\\( \\|\t\\)+"
 let delim = Str.regexp "\\( \\|\t\\)*,\\( \\|\t\\)*"
 let reg = Str.regexp "r\\([0-9]+\\)$"
 let imm = Str.regexp "[0-9]+"
+let imm_char = Str.regexp "\\'.\\'"
 
 let usage () =
   print_endline "Usage : ocaml str.cma compiler.ml <asm file> <output file>"
@@ -67,10 +68,13 @@ let out_reg oc num = int_of_string num |> output_byte oc
 
 let out_imm = out_reg
 
+let out_imm_char oc expr = Char.code (String.get expr 1) |> output_byte oc
+
 let out_operand oc operand =
   let o = String.lowercase operand in (* only consider lower cases *)
   if Str.string_match reg o 0 then Str.matched_group 1 o |> out_reg oc
   else if Str.string_match imm o 0 then out_imm oc o
+  else if Str.string_match imm_char operand 0 then out_imm_char oc operand
   else failwith ("[Unreachable] type_check() should have handled this")
 
 let out oc opcode operands =
@@ -98,6 +102,7 @@ let check_operand oprnd typ line =
     else error line ("Expected Reg operand, but '" ^ oprnd' ^ "' was given")
   | Imm -> (* expect oprnd is an immediate value *)
     if Str.string_match imm oprnd' 0 then check_imm_range oprnd' line
+    else if Str.string_match imm_char oprnd' 0 then ()
     else error line ("Expected Imm operand, but '" ^ oprnd' ^ "' was given")
 
 (* Check if the operands have a valid type (reg/imm) for given opcode *)
@@ -126,11 +131,12 @@ let parse inpath outpath =
       line_num := !line_num + 1;
       let line = {num = !line_num; content = l} in
       match Str.split space l with
+      | ";" :: _ -> ();
+      | [] -> ();
       | opcode :: tail_tokens ->
         let operands = Str.split delim (String.concat "" tail_tokens) in
         type_check opcode operands line;
         out oc opcode operands
-      | [] -> error line "empty line provided"
     done
   with End_of_file -> (close_in ic; close_out oc)
 
