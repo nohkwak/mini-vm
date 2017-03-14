@@ -131,8 +131,8 @@ let parse inpath outpath =
       line_num := !line_num + 1;
       let line = {num = !line_num; content = l} in
       match Str.split space l with
-      | ";" :: _ -> ();
-      | [] -> ();
+      | ";" :: _ -> ()
+      | [] -> ()
       | opcode :: tail_tokens ->
         let operands = Str.split delim (String.concat "" tail_tokens) in
         type_check opcode operands line;
